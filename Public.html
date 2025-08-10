@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenFrontIO Remake</title>
+  <style>
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+    #grid { display: grid; grid-template-columns: repeat(10, 40px); grid-gap: 2px; margin-top: 20px; }
+    .tile { width: 40px; height: 40px; background: #ccc; cursor: pointer; }
+    .tile.claimed { opacity: 0.8; }
+    #players { margin-top: 20px; }
+    .player { margin: 4px 0; }
+    .color-box { width: 12px; height: 12px; display: inline-block; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <h1>OpenFrontIO Remake</h1>
+  <div id="players"></div>
+  <div id="grid"></div>
+
+  <script>
+    const gridSize = 10;
+    let playerId = null;
+    let players = {};
+    let grid = [];
+
+    const gridEl = document.getElementById('grid');
+    const playersEl = document.getElementById('players');
+
+    const ws = new WebSocket(`ws://${location.host}`);
+
+    ws.onmessage = event => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'init') {
+        playerId = data.playerId;
+        players = data.state.players;
+        grid = data.state.grid;
+        renderGrid();
+        renderPlayers();
+      } else if (data.type === 'updateGrid') {
+        grid = data.grid;
+        renderGrid();
+      } else if (data.type === 'players') {
+        players = data.players;
+        renderPlayers();
+      }
+    };
+
+    function renderGrid() {
+      gridEl.innerHTML = '';
+      for (let i = 0; i < gridSize * gridSize; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        if (grid[i]) {
+          tile.style.backgroundColor = players[grid[i]]?.color || '#000';
+          tile.classList.add('claimed');
+        }
+        tile.onclick = () => {
+          ws.send(JSON.stringify({ type: 'claim', index: i, playerId }));
+        };
+        gridEl.appendChild(tile);
+      }
+    }
+
+    function renderPlayers() {
+      playersEl.innerHTML = '<strong>Players:</strong><br>';
+      for (const id in players) {
+        const p = players[id];
+        const div = document.createElement('div');
+        div.className = 'player';
+        div.innerHTML = `<span class="color-box" style="background:${p.color}"></span>${p.name}`;
+        playersEl.appendChild(div);
+      }
+    }
+  </script>
+</body>
+</html>
